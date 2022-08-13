@@ -1,0 +1,5 @@
+User.create(first_name: 'John', last_name: 'Doe', email: 'jdoe1@company.com', gov_id_number: '1234567', gov_id_type: 'licence')
+User.create(first_name: 'Jill', last_name: 'Doe', email: 'jdoe@other.com', gov_id_number: '335A67', gov_id_type: 'SIN')
+User.create(first_name: 'Steve', last_name: 'Smith', email: 'steve.smith@company.com', gov_id_number: 'LC123459', gov_id_type: 'licence')
+User.create(first_name: 'John', last_name: 'Doe', email: 'jdoe2@company.com', gov_id_number: '2345678', gov_id_type: 'licence')
+User.create(first_name: 'Mary', last_name: 'Lamb', email: 'm.lamb@company.com', gov_id_number: '55555555', gov_id_type: 'SIN')
