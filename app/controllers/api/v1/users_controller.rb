@@ -5,11 +5,13 @@ module Api
     # users controller
     class Api::V1::UsersController < ApplicationController
       class MultipleUsersError < StandardError; end
-      before_action :all_users
+      before_action :fetch_all_users
 
       def index
         find_users_by_query_params(request)
+
         raise(MultipleUsersError, 'Error: Too many users found.') if @users.size > 1 && !@return_multiple
+        raise(MultipleUsersError, 'Error: No user was found.') if @users.size.zero?
 
         render json: @users
       rescue MultipleUsersError => e
@@ -17,30 +19,52 @@ module Api
       end
 
       def create
-        find_users_by_query_params(request)
-        raise(MultipleUsersError, 'Error: User already exists.') if @user
-
         @user = User.new(user_params)
-        @users << @user
+        raise(MultipleUsersError, 'Error: User already exists.') if @all_users.include?(@user)
 
-        render json: @user
+        @all_users << @user
+        fetch_all_users
+
+        render json: @all_users
       rescue MultipleUsersError => e
         render plain: e.message
       end
 
       def destroy
         find_users_by_query_params(request)
-        raise(MultipleUsersError, 'Error: Cannot delete, more than 1 user was found.') unless @users.size == 1
+        raise(MultipleUsersError, 'Error: Cannot delete, more than 1 user was found.') if @users.size > 1
+        raise(MultipleUsersError, 'Error: Cannot delete, no user was found.') if @users.size.zero?
 
-        @users&.delete(@user)
+        @all_users.delete(@user)
+        fetch_all_users
+        render json: @all_users
       rescue MultipleUsersError => e
         render plain: e.message
       end
 
       private
 
-      def all_users
-        @all_users = User.all
+      def fetch_all_users
+        if @all_users.present?
+          cache_key = "all_users/#{@all_users.last.gov_id_number}"
+          puts("\ncache key: #{cache_key}\n")
+          Rails.cache.fetch(cache_key) do
+            @all_users
+          end
+        else
+          john1 = User.new(last_name: 'Doe', first_name: 'John', email: 'jdoe1@example.com', gov_id_number: '11111111', gov_id_type: 'licence')
+          john2 = User.new(last_name: 'Doe', first_name: 'John', email: 'jdoe2@example.com', gov_id_number: '22222222', gov_id_type: 'licence')
+          mary = User.new(last_name: 'Doe', first_name: 'Mary', email: 'mdoe@example.com', gov_id_number: '33333333', gov_id_type: 'licence')
+          jill1 = User.new(last_name: 'Smith', first_name: 'Jill', email: 'jsmith@example.com', gov_id_number: '44444444', gov_id_type: 'licence')
+          jill2 = User.new(last_name: 'Johnson', first_name: 'Jill', email: 'jjohnson@example.com', gov_id_number: '55555555', gov_id_type: 'licence')
+          @all_users = [john1, john2, mary, jill1, jill2]
+          cache_key = "all_users/#{@all_users.last.gov_id_number}"
+          puts("\ninitial cache key: #{cache_key}\n")
+          Rails.cache.write(cache_key, @all_users)
+        end
+        puts
+        @all_users.each { |u| puts u.to_s }
+        puts
       end
 
       def find_users_by_query_params(request)
@@ -52,8 +76,10 @@ module Api
       end
 
       def find_users(conditions)
+        @users = []
+
         @return_multiple = to_bool(conditions.delete(:return_multiple))
-        @users = @all_users&.select do |user|
+        @users = @all_users.select do |user|
           conditions.each do |k, v|
             break if user[k] != v
           end
@@ -69,7 +95,7 @@ module Api
       end
 
       def user_params
-        params.require(:user).permit!
+        params.require(:user).permit(:first_name, :last_name, :email, :gov_id_number, :gov_id_type)
       end
     end
   end
